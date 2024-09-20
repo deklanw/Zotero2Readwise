@@ -18,6 +18,7 @@ class Zotero2Readwise:
         zotero_library_type: str = "user",
         include_annotations: bool = True,
         include_notes: bool = False,
+        whitelist_tags: List[str] = ["rw", "readwise"]
     ):
 
         self.readwise = Readwise(readwise_token)
@@ -29,6 +30,7 @@ class Zotero2Readwise:
         self.zotero = ZoteroAnnotationsNotes(self.zotero_client)
         self.include_annots = include_annotations
         self.include_notes = include_notes
+        self.whitelist_tags = set(whitelist_tags)
 
     def get_all_zotero_items(self) -> List[Dict]:
         annots, notes = [], []
@@ -47,4 +49,16 @@ class Zotero2Readwise:
         if self.zotero.failed_items:
             self.zotero.save_failed_items_to_json("failed_zotero_items.json")
 
-        self.readwise.post_zotero_annotations_to_readwise(formatted_items)
+        whitelisted = []
+
+        for item in formatted_items:
+            if not item.tags:
+                continue
+
+            item_tags = set(item.tags)
+
+            if item_tags & self.whitelist_tags:
+                item.tags = list(item_tags - self.whitelist_tags)
+                whitelisted.append(item)
+        
+        self.readwise.post_zotero_annotations_to_readwise(whitelisted)
